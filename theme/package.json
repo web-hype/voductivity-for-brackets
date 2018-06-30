@@ -1,0 +1,15 @@
+{
+    "name": "web-hype.voductivity-theme",
+    "title": "Voductivity",
+    "description": "Dark theme with semi-transparent background",
+    "homepage": "https://github.com/web-hype/voductivity-for-brackets",
+    "version": "1.0.0",
+    "author": "WEB!HYPE",
+    "license": "MIT",
+    "theme": {
+        "file": "theme.less",
+        "dark": true,
+        "addModeClass": true
+    },
+    "keywords": ["theme", "voductivity"]
+}

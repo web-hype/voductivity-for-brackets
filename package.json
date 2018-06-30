@@ -1,0 +1,20 @@
+{
+    "name": "web-hype.voductivity",
+    "title": "Voductivity",
+    "description": "Watch videos and view images while you code.",
+    "homepage": "https://github.com/web-hype/voductivity-for-brackets",
+    "version": "1.0.0",
+    "author": "WEB!HYPE",
+    "license": "MIT",
+    "keywords": [
+        "extension",
+        "voductivity",
+        "vod",
+        "video",
+        "videos",
+        "embed",
+        "images",
+        "background",
+        "underlay"
+    ]
+}

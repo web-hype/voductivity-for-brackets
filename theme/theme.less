@@ -1,0 +1,31 @@
+@import 'https://raw.githubusercontent.com/adobe/brackets/master/src/extensions/default/DarkTheme/main.less';
+
+@defaultAlpha: 0.35;
+@background: rgba(29, 31, 33, @defaultAlpha);
+@foreground: #fff;
+
+.CodeMirror-focused .CodeMirror-activeline-background {
+    background-color: rgba(47, 47, 47, @defaultAlpha);
+}
+
+.pane-header {
+    background-color: rgba(29, 31, 33, 0.8) !important;
+}
+
+.cm-atom, .cm-string, .cm-string-2, .cm-hr {color: #e2b069;}
+.cm-number, .cm-attribute, .cm-plus {color: #a7cc00;}
+.cm-def, .cm-property {color: #d3afe9;}
+.cm-comment {color: #bbb;}
+.cm-minus {color: #e15351;}
+.cm-header {color: #e283b1;}
+.cm-link {color: #bc88dd; text-decoration: none;}
+.cm-keyword, .cm-qualifier, .cm-builtin, .cm-tag, .cm-quote {color: #b6cefc;}
+.cm-error {color: #e56866;}
+
+.CodeMirror-linenumber {
+    color: #999;
+}
+
+.CodeMirror-matchingbracket, .CodeMirror-matchingtag {
+    background-color: #59b300;
+}
