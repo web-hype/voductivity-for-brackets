@@ -1,4 +1,5 @@
 # Voductivity _<sub>for Brackets</sub>_
 This extension allows you to use videos and images as a background for the Brackets code editor.
 
-![Use videos as your background](https://firebasestorage.googleapis.com/v0/b/webhype-company.appspot.com/o/ext%2Fvoductivity%2Fvoductivity-brackets-demo-clip-2x.gif?alt=media&token=5ebefc6e-7fef-4c47-84cf-f0429f168e20)
+![Watch videos while you code](https://github.com/web-hype/wh-assets/raw/master/voductivity-brackets-demo-clip-2x.gif "Watch \"Tears of Steel\" while you code")
+*Watch [Tears of Steel](https://en.wikipedia.org/wiki/Tears_of_Steel) while you code*
