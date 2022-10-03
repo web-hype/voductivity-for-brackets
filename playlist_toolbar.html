@@ -1,0 +1,28 @@
+<div class="title">
+    <div class="fixed-col">
+        <input type="checkbox" class="check-all">
+    </div>
+    <div class="fixed-col">Voductivity</div>
+    <div class="controls-col">
+        <button class="btn small load previous" title="Previous" disabled>&#8810</button>
+        <button class="btn small load reload" title="Reload">&#8634</button>
+        <button class="btn small load next" title="Next" disabled>&#8811</button>
+        <button class="btn small stop-running" title="Stop">&#9724</button>
+    </div>
+    <div class="edit-col">
+        <button class="btn small add-dialog" title="Add to playlist">&#10010</button>
+        <button class="btn small danger remove-checked" title="Remove from playlist" disabled>&#10006</button>
+        {{^floatingPlayer}}
+        <button class="btn small hide-workspace">Toggle Workspace</button>
+        {{/floatingPlayer}}
+        <button class="btn small toggle-floating">
+            {{#floatingPlayer}}
+                Move to Background
+            {{/floatingPlayer}}
+            {{^floatingPlayer}}
+                Floating Player
+            {{/floatingPlayer}}
+        </button>
+    </div>
+</div>
+<a href="#" class="close">×</a>

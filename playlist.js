@@ -8,13 +8,20 @@ define(function (require, exports, module) {
         WorkspaceManger = brackets.getModule("view/WorkspaceManager"),
         EventDispatcher = brackets.getModule("utils/EventDispatcher"),
         Mustache = brackets.getModule("thirdparty/mustache/mustache"),
+        MC = require('./mediacontainer'),
+        MediaContainer = MC.instance,
+        MediaContainerMode = MC.DisplayMode,
+        ItemMarkup = require('./itemmarkup'),
         playlistPreferences = PreferencesManager.getExtensionPrefs('voductivity.playlist'),
         panelHtml = require('text!playlist_panel.html'),
         tableHTML = require('text!playlist_table.html'),
+        toolbarHTML = require('text!playlist_toolbar.html'),
         panelID = "voductivity.playlist",
+        mockPanelID = "voductivity.mockPanel",
+        $body = $('body'),
         _playlist = [],
         _renderList = [],
-        _activeIndex = 0,
+        _activeIndex = -1,
         _allChecked = false,
         _inactive = false,
         _instance, _panel;
@@ -41,7 +48,12 @@ define(function (require, exports, module) {
     function PlaylistController() {
         if (!_panel) {
             var $panel = $(panelHtml);
-            _panel = WorkspaceManger.createBottomPanel(panelID, $panel, 100);
+            
+            _panel = WorkspaceManger.createBottomPanel(panelID, $panel, 40);
+            _panel.$panel.on('panelResizeStart', function(size) {
+                _panel.$panel.removeClass('minimised');
+                $body.removeClass('voductivity-playlist-minimised');
+            });
         }
     }
     EventDispatcher.makeEventDispatcher(PlaylistController.prototype);
@@ -56,10 +68,11 @@ define(function (require, exports, module) {
             var cachedIndex = playlistPreferences.get(PreferenceConstant.activeIndex);
             
             if (typeof(cachedIndex) !== "number") {
-                playlistPreferences.definePreference(PreferenceConstant.activeIndex, "number", 0);
+               
+               cachedIndex = _activeIndex; playlistPreferences.definePreference(PreferenceConstant.activeIndex, "number", cachedIndex);
             }
             
-            _activeIndex = playlistPreferences.get(PreferenceConstant.activeIndex);
+            _activeIndex = cachedIndex;
             
             if (!cachedList) {
                 playlistPreferences.definePreference(PreferenceConstant.playlist, "array", []);
@@ -94,6 +107,11 @@ define(function (require, exports, module) {
                     function: "PlaylistController.loadActiveItem",
                     error: Error("playlist-empty")
                 });
+            } else if (_activeIndex < 0) {
+                return reject({
+                    function: "PlaylistController.loadActiveItem",
+                    error: Error("no-active-item")
+                });
             } else if (_activeIndex >= _playlist.length) {
                 return reject({
                     function: "PlaylistController.loadActiveItem",
@@ -116,7 +134,7 @@ define(function (require, exports, module) {
     
     function toggleInactive(inactive) {
         _inactive = typeof(inactive) === "boolean" ? inactive : !_inactive;
-        $('.voductivity-playlist .btn.stop-running, .voductivity-playlist .btn.reload, .voductivity-playlist .btn.hide-workspace').attr('disabled', _inactive);
+        $('.voductivity-playlist .btn.stop-running, .voductivity-playlist .btn.reload, .voductivity-playlist .btn.hide-workspace, .voductivity-playlist .btn.toggle-floating').attr('disabled', _inactive);
         enableDirectionalLoadButton();
         
         if (_inactive) {
@@ -146,6 +164,16 @@ define(function (require, exports, module) {
         });
     }
     
+    function createPreview(item) {
+        let opts = {
+            sandbox: true,
+            preview: 0.2
+        };
+        let element = ItemMarkup.elementForItem(item, opts);
+        item['preview'] = element.outerHTML;
+        cachePlaylist();
+    }
+    
     PlaylistController.prototype.addItem = function (item = PlaylistItem()) {
         return new Promise(function(resolve, reject) {
             if (!item.link.length) {
@@ -154,6 +182,8 @@ define(function (require, exports, module) {
                     error: Error("invalid-parameter")
                 });
             }
+            
+            createPreview(item);
 
             _playlist.push(item);
             resolve({
@@ -168,10 +198,29 @@ define(function (require, exports, module) {
         });
     }
     
+    function renderedToolbar() {
+        var data = { floatingPlayer: MediaContainer.currentDisplayMode() == MediaContainerMode.floating };
+        
+        return Mustache.render(toolbarHTML, data);
+    }
+    
+    PlaylistController.prototype.renderToolbar = function () {
+        var $toolbar = _panel.$panel.find('.toolbar'),
+            data = { floatingPlayer: MediaContainer.currentDisplayMode() == MediaContainerMode.floating };
+        
+        $toolbar.html(Mustache.render(toolbarHTML, data));
+        toggleInactive(_inactive);
+    }
+    
     PlaylistController.prototype.renderTable = function () {
         _renderList = [];
         
         _playlist.forEach(function(o,i) {
+            
+            if (!o.preview) {
+                createPreview(o);
+            }
+            
             var data = {
                 index: i,
                 isActive: (!_inactive && i == _activeIndex),
@@ -180,11 +229,14 @@ define(function (require, exports, module) {
             _renderList.push(Object.assign(data, o));
         });
         
-        var panel = WorkspaceManger.getPanelForID(panelID),
-            $table = panel.$panel.find('.table-container'),
+        var $table = _panel.$panel.find('.table-container'),
+            $toolbar = _panel.$panel.find('.toolbar'),
             index = 0,
             data = { list: _renderList };
+        
         $table.html(Mustache.render(tableHTML, data));
+        
+        this.renderToolbar();
     }
     
     PlaylistController.prototype.initialiseListeners = function () {
@@ -193,7 +245,9 @@ define(function (require, exports, module) {
         
         panel.$panel.off('.voductivity-panel')
             .on("click.voductivity-panel", ".close", function () {
-                self.closePanel();
+                _panel.$panel.toggleClass('minimised');
+                $body.toggleClass('voductivity-playlist-minimised');
+                WorkspaceManger.recomputeLayout();
             })
             .on("click.voductivity-panel", ".check-all", function () {
                 _allChecked = $('.voductivity-playlist .check-all').is(':checked');
@@ -242,8 +296,13 @@ define(function (require, exports, module) {
             .on("click.voductivity-panel", ".btn.hide-workspace", function () {
                 self.trigger("hideworkspace");
             })
+            .on("click.voductivity-panel", ".btn.toggle-floating", function () {
+                self.trigger("togglefloating");
+                self.renderToolbar();
+            })
             .on("click.voductivity-panel", ".btn.stop-running", function () {
                 toggleInactive(true);
+                self.activeItemIndex(-1);
                 self.renderTable();
             })
             .on("click.voductivity-panel", ".btn.add-dialog", function () {
@@ -320,11 +379,15 @@ define(function (require, exports, module) {
         _instance.initialiseListeners();
         _instance.renderTable();
         enableDirectionalLoadButton();
+        
+        $body.addClass('voductivity-playlist-open');
     }
     
     function didClosePanel() {
         clearAllChecked();
         _instance.trigger('closed');
+        
+        $body.removeClass('voductivity-playlist-open');
     }
     
     PlaylistController.prototype.togglePanel = function (open) {

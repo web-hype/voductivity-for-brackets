@@ -4,8 +4,17 @@
         {{#list}}
         <tr data-item-index="{{index}}">
             <td class="checkbox-column"><input type="checkbox" class="check-one" {{#isChecked}}checked="true"{{/isChecked}}/></td>
-            <td class="line-name">{{item.name}}</td>
-            <td class="line-link">{{item.link}}</td>
+            <td class="line-preview">
+                <div class="line-preview-wrapper">
+                    {{{item.preview}}}
+                </div>
+            </td>
+            <td class="line-details">
+                {{#item.name}}
+                <h4 class="line-name">{{item.name}}</h4>
+                {{/item.name}}
+                <p class="line-link">{{item.link}}</p>
+            </td>
             <td class="line-controls right">
                 {{^isActive}}
                 <button class="btn small display-this">Load</button>

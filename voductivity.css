@@ -6,14 +6,21 @@
 
 #voductivity-focused-btn {
     position: fixed;
-    top: 15%;
-    right: 20px;
+    bottom: 10px;
+    right: 10px;
     display: none;
     padding: 10px;
     background: rgba(44,44,44,0.5);
-    border-radius: 12px;
+    border-radius: 3px;
     font-size: medium;
     box-shadow: none !important;
+}
+
+body.voductivity-playlist-open #voductivity-focused-btn {
+    bottom: 410px !important;
+}
+body.voductivity-playlist-minimised #voductivity-focused-btn {
+    bottom: 50px !important;
 }
 
 body.voductivity-panel-open .voductivity-btn {
@@ -51,7 +58,12 @@ body.voductivity-enabled.voductivity-workspace-minimised #voductivity-playlist-p
     bottom: 0;
     position: fixed;
     width: 100%;
+    height: 400px !important;
     left: 0;
+}
+
+body.voductivity-enabled.voductivity-workspace-minimised #voductivity-playlist-panel .vert-resizer {
+    cursor: auto !important;
 }
 
 body.voductivity-enabled.voductivity-workspace-minimised #voductivity-focused-btn {
@@ -65,14 +77,82 @@ body.voductivity-enabled.voductivity-workspace-minimised #voductivity-focused-bt
     height: 100%;
 }
 
-.voductivity-enabled #voductivity-media-container>* {
-    max-height: 100%;
-    margin: auto;
+.voductivity-enabled #voductivity-media-container.pip {
+    z-index: 1050;
+    width: 300px;
+    height: 200px;
+    min-width: 50px;
+    min-height: 50px;
+    top: 30px; 
+    right: 50px;
+    background: black;
 }
 
-.voductivity-enabled iframe.voductivity {
+.voductivity-enabled #voductivity-media-container.pip.transforming::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
+    z-index: 1050;
+}
+
+.voductivity-enabled #voductivity-media-container .handle {
+    z-index: 1051;
+    width: 10px;
+    height: 10px;
+    position: absolute;
+    background-color: white;
+    display: none;
+    cursor: move;
+}
+
+.voductivity-enabled #voductivity-media-container .handle.tl.resize {
+    cursor: nwse-resize;
+}
+
+.voductivity-enabled #voductivity-media-container.pip:hover .handle,
+.voductivity-enabled #voductivity-media-container.pip .handle.active {
+    display: block;
+}
+
+.voductivity-enabled #voductivity-media-container.pip .handle.tl {
+    top: -5px;
+    left: -5px;
+}
+
+.voductivity.media {
+    max-width: 100%;
+    max-height: 100%;
+    margin: auto;
+    object-fit: contain;
+    border: none;
+}
+
+iframe.voductivity {
+    width: 100%;
+    height: 100%;
+}
+
+.voductivity-playlist.minimised {
+    max-height: 42px !important
+}
+
+.voductivity-playlist a.close {
+    color: transparent !important;
+}
+
+.voductivity-playlist a.close::after {
+    content: '\2228';
+    color: white;
+    position: absolute;
+    top: -2px;
+    left: 0;
+}
+
+.voductivity-playlist.minimised a.close::after {
+    content: '\2227' !important;
 }
 
 .voductivity-playlist .title {
@@ -97,6 +177,17 @@ body.voductivity-enabled.voductivity-workspace-minimised #voductivity-focused-bt
     text-align: right;
 }
 
+.voductivity-playlist td {
+    vertical-align: middle !important;
+}
+
+.voductivity-playlist td .line-preview-wrapper {
+    position: relative;
+    display: inline-flex;
+    width: 150px;
+    height: 100px;
+}
+
 .voductivity-playlist td.line-controls .btn.active {
     background-color: limegreen;
     opacity: 1 !important;
@@ -114,6 +205,7 @@ body.voductivity-enabled.voductivity-workspace-minimised #voductivity-focused-bt
 .voductivity-add-dialog input,
 .voductivity-add-dialog textarea {
     width: 100%;
+    resize: vertical;
 }
 
 .voductivity-enabled .btn {

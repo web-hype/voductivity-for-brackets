@@ -7,7 +7,8 @@ define(function (require, exports, module) {
     var PreferenceItem = {
         currentIndex: "currentIndex",
         enabled: "enabled",
-        defaultTheme: "defaultTheme"
+        defaultTheme: "defaultTheme",
+        loadOnLaunch: "loadOnLaunch"
     }
     
     var AppInit = brackets.getModule("utils/AppInit"),
@@ -19,6 +20,10 @@ define(function (require, exports, module) {
         ThemeManger = brackets.getModule("view/ThemeManager"),
         WorkspaceManger = brackets.getModule("view/WorkspaceManager"),
         extPreferences = PreferencesManager.getExtensionPrefs('voductivity'),
+        MC = require('./mediacontainer'),
+        MediaContainer = MC.instance,
+        MediaDisplayMode = MC.DisplayMode,
+        ItemMarkup = require('./itemmarkup'),
         Playlist = require('./playlist'),
         PlaylistController = Playlist.PlaylistController,
         PlaylistItem = Playlist.PlaylistItem,
@@ -28,11 +33,11 @@ define(function (require, exports, module) {
         workspaceMinimised = false,
         workspacedMinimisedCss = "voductivity-workspace-minimised",
         panelOpenCss = 'voductivity-panel-open',
-        CommandId_ToggleWorkspaceVisibility = "voductivity.toggleworkspacevisibility",
+        Command_Id_ToggleWorkspaceVisibility = "voductivity.toggleworkspacevisibility",
         Command_Id_ToggleEnabled = "voductivity.toggleenabled",
-        Command_Id_OpenPlaylist = "voductivity.openplaylist",
-        Command_Id_OpenAddDialog = "voductivity.openadddialog",
-        Command_ToggleWorkspaceVisibility, Command_ToggleEnabled, Command_OpenPlaylist, Command_OpenAddDialog,
+        Command_Id_ToggleLoadOnLaunch = "voductivity.loadonlaunch",
+        Command_Id_ToggleFloatingPlayer = "voductivity.togglefloatingplayer",
+        Command_ToggleWorkspaceVisibility, Command_ToggleEnabled, Command_ToggleLoadOnLaunch, Command_ToggleFloatingPlayer,
         _extEnabled = false,
         extPlaylistPanel,
         usersThemeName;
@@ -49,20 +54,24 @@ define(function (require, exports, module) {
     var setup = function() {
         PreferencesManager.set("themes.theme", extThemeName);
 
-        var $container = $(document.createElement('div'))
-            .attr('id','voductivity-media-container');
         $('body').addClass(extCss)
-            .prepend($container);
+            .prepend(MediaContainer.element);
         
+        openPlaylist(true);
         displayActiveItem();
     }
     
     var tearDown = function() {
         var defaultTheme = extPreferences.get(PreferenceItem.defaultTheme);
         PreferencesManager.set("themes.theme", defaultTheme);
-        $('body').removeClass(extCss + ' ' + workspacedMinimisedCss);
-        $('#voductivity-media-container').remove();
+        
+        let extClasses = extCss + ' ' + workspacedMinimisedCss + ' ' + panelOpenCss;
+        $('body').removeClass(extCss)
+            .removeClass(workspacedMinimisedCss);
+        $(MediaContainer.element).remove();
         PlaylistController.setInactive();
+        
+        openPlaylist(false);
     }
     
     var instanciatePlaylist = function() {
@@ -88,45 +97,20 @@ define(function (require, exports, module) {
             
             return Promise.reject(e);
         }).catch(function(e) {
-            return console.error(e.function + ': ' + e.error.message);
-        }).then(function(data) {
-            itemData = data.item;
-            
-            var itemData = data.item,
-                src = itemData.link,
-                iframeTag = 'iframe',
-                containerRef = '#voductivity-media-container',
-                html, tag;
-            
-            $(containerRef).empty();
-
-            switch(itemData.type) {
-                case PlaylistItemType.embed:
-                    $(src).find(iframeTag)
-                        .addBack(iframeTag).appendTo(containerRef);
-                    return;
-                case PlaylistItemType.video:
-                    var $source = $(document.createElement('source')).attr('src', src),
-                        $element = $(document.createElement('video'))
-                        .addClass('voductivity')
-                        .attr('controls', '')
-                        .attr('autoplay', '')
-                        .append($source)
-                        .appendTo(containerRef);
-                    return;
-                case PlaylistItemType.image:
-                    tag = 'img'
-                    break;
-                case PlaylistItemType.url:
-                default:
-                    tag = 'iframe';
-                    break;
+            if (e.error.message === "no-active-item") {
+                PlaylistController.setInactive();
             }
             
-            $(document.createElement(tag))
-                .addClass('voductivity')    
-                .attr('src', src)
-                .appendTo(containerRef);
+            return Promise.reject(e);
+        }).then(function(data) {
+            let opts = {
+                controls: true,
+                autoplay: true
+            }
+            let element = ItemMarkup.elementForItem(data.item, opts);
+            MediaContainer.display(element);
+        }).catch(function(e) {
+            console.error(e.function + ': ' + e.error.message);
         });
     }
     
@@ -140,7 +124,7 @@ define(function (require, exports, module) {
     var initialise = function () {
         var defaultTheme = extPreferences.get(PreferenceItem.defaultTheme);
         
-        if (!extPreferences.get(PreferenceItem.defaultTheme)) {
+        if (!defaultTheme) {
             var currentTheme = ThemeManger.getCurrentTheme();
             var currentThemeName = !!currentTheme && currentTheme.name !== extThemeName ? currentTheme.name : "light-theme";
             extPreferences.definePreference(PreferenceItem.defaultTheme, "string", currentThemeName);
@@ -170,7 +154,23 @@ define(function (require, exports, module) {
         });
         
         reloadPlaylist();
-        PlaylistController.setInactive();
+        
+        var shouldLoad = extPreferences.get(PreferenceItem.loadOnLaunch);
+        if (shouldLoad == null) {
+            shouldLoad = false;
+            extPreferences.definePreference(PreferenceItem.loadOnLaunch, "bool", shouldLoad);
+        }
+        
+        if (!shouldLoad) {
+            PlaylistController.setInactive();
+        } else if (!_extEnabled) {
+            toggleEnabled();
+            displayActiveItem();
+        }
+        
+        updateLoadOnLaunchMenuItem();
+        updateMenuItemsForFloatingPlayer();
+        
     };
     
     var toggleEnabled = function() {
@@ -196,11 +196,7 @@ define(function (require, exports, module) {
         if (workspaceMinimised) {
             $focusedBtn.remove();
             $body.removeClass(workspacedMinimisedCss);
-            if (!PlaylistController.isPanelOpen()) {
-                PlaylistController.closePanel();
-            } else {
-                PlaylistController.openPanel();
-            }
+            WorkspaceManger.recomputeLayout();
         } else {
             $focusedBtn = $toolbarBtn.clone(true)
                 .attr('id', 'voductivity-focused-btn')
@@ -210,6 +206,32 @@ define(function (require, exports, module) {
         
         workspaceMinimised = !workspaceMinimised;
         Command_ToggleWorkspaceVisibility.setChecked(workspaceMinimised);
+    }
+    
+    function updateMenuItemsForFloatingPlayer() {
+        var isFloating = MediaContainer.currentDisplayMode() == MediaDisplayMode.floating;
+        
+        Command_ToggleFloatingPlayer.setChecked(isFloating);
+        Command_ToggleWorkspaceVisibility.setEnabled(!isFloating);
+        
+        PlaylistController.renderToolbar();
+    }
+    
+    var toggleFloatingPlayer = function() {
+        var makeFloating = MediaContainer.currentDisplayMode() != MediaDisplayMode.floating;
+        
+        if (makeFloating) {
+            MediaContainer.makeFloating();
+            
+            if (workspaceMinimised) {
+                toogleWorkspaceVisibility();
+            }
+            
+        } else {
+            MediaContainer.makeBackground();
+        }
+        
+        updateMenuItemsForFloatingPlayer();
     }
     
     var setPlaylistListeners = function (off = false) {
@@ -238,13 +260,16 @@ define(function (require, exports, module) {
             })
             .on('closed.voductivity', function() {
             $('body').removeClass(panelOpenCss);
-                Command_OpenPlaylist.setChecked(false);
+//                Command_OpenPlaylist.setChecked(false);
             })
             .on('adddialog.voductivity', function() {
                 openAddDialog();
             })
             .on('hideworkspace.voductivity', function() {
                 toogleWorkspaceVisibility();
+            })
+            .on('togglefloating.voductivity', function() {
+                toggleFloatingPlayer();
             });
     }
     
@@ -252,7 +277,7 @@ define(function (require, exports, module) {
         var open = typeof(open) === "boolean" ? open : !PlaylistController.isPanelOpen();
         setPlaylistListeners(!open);
         PlaylistController.togglePanel(open);
-        Command_OpenPlaylist.setChecked(open);
+//        Command_OpenPlaylist.setChecked(open);
         
         if (open) {
             $('body').addClass(panelOpenCss);
@@ -298,25 +323,38 @@ define(function (require, exports, module) {
         });
     }
     
+    function updateLoadOnLaunchMenuItem() {
+        Command_ToggleLoadOnLaunch.setChecked(extPreferences.get(PreferenceItem.loadOnLaunch));
+    }
+    
+    var toggleLoadOnLaunch = function () {
+        var shouldLoad = extPreferences.get(PreferenceItem.loadOnLaunch);
+        
+        extPreferences.set(PreferenceItem.loadOnLaunch, !shouldLoad);
+        saveExtensionPreferences();
+        
+        updateLoadOnLaunchMenuItem();
+    }
+    
     Command_ToggleEnabled = CommandManager.register("Enable Voductivity",
                                                    Command_Id_ToggleEnabled,
                                                    toggleEnabled);
+    Command_ToggleLoadOnLaunch = CommandManager.register("Load last active on launch",
+                                                         Command_Id_ToggleLoadOnLaunch,
+                                                         toggleLoadOnLaunch);
+    Command_ToggleFloatingPlayer = CommandManager.register("Floating player",
+                                                          Command_Id_ToggleFloatingPlayer,
+                                                          toggleFloatingPlayer);
     Command_ToggleWorkspaceVisibility = CommandManager.register("Hide Workspace",
-                                                                CommandId_ToggleWorkspaceVisibility,
+                                                                Command_Id_ToggleWorkspaceVisibility,
                                                                 toogleWorkspaceVisibility);
-    Command_OpenPlaylist = CommandManager.register("Show Playlist",
-                                                   Command_Id_OpenPlaylist,
-                                                   openPlaylist);
-    Command_OpenAddDialog = CommandManager.register("Add to Playlist",
-                                                   Command_Id_OpenAddDialog,
-                                                   openAddDialog);
     
     var viewMenu = Menus.getMenu(Menus.AppMenuBar.VIEW_MENU);
     viewMenu.addMenuDivider();
     viewMenu.addMenuItem(Command_Id_ToggleEnabled, "Alt-Shift-V");
-    viewMenu.addMenuItem(CommandId_ToggleWorkspaceVisibility, "Alt-Shift-W");
-    viewMenu.addMenuItem(Command_Id_OpenPlaylist);
-    viewMenu.addMenuItem(Command_Id_OpenAddDialog);
+    viewMenu.addMenuItem(Command_Id_ToggleLoadOnLaunch);
+    viewMenu.addMenuItem(Command_Id_ToggleFloatingPlayer, "Alt-Shift-F");
+    viewMenu.addMenuItem(Command_Id_ToggleWorkspaceVisibility, "Alt-Shift-W");
     
     ExtensionUtils.loadStyleSheet(module, "voductivity.css");
     var $toolbarBtn = $(document.createElement("a"))
